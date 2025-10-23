@@ -1,0 +1,209 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Python-Powered Weather App</title>
+    <!-- Load Tailwind CSS via CDN -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    fontFamily: {
+                        sans: ['Inter', 'sans-serif'],
+                    },
+                    colors: {
+                        'sky-blue': '#87CEEB',
+                        'deep-blue': '#1E3A8A',
+                        'cloud-gray': '#F3F4F6',
+                        'sun-yellow': '#FBBF24',
+                    }
+                }
+            }
+        }
+    </script>
+    <style>
+        /* Custom scrollbar for a nicer look */
+        ::-webkit-scrollbar { width: 6px; }
+        ::-webkit-scrollbar-thumb { background: #94A3B8; border-radius: 3px; }
+        ::-webkit-scrollbar-track { background: #E2E8F0; }
+    </style>
+</head>
+<body class="bg-cloud-gray min-h-screen flex items-center justify-center font-sans p-4">
+
+    <div class="w-full max-w-lg bg-white rounded-xl shadow-2xl overflow-hidden">
+        
+        <!-- Header Section -->
+        <header class="bg-deep-blue text-white p-6 text-center rounded-t-xl">
+            <h1 class="text-3xl font-bold tracking-tight">Weather Watch 🌤️</h1>
+            <p class="text-sm opacity-80 mt-1">Python API & Modern Frontend</p>
+        </header>
+
+        <!-- Search Form -->
+        <div class="p-6 border-b border-gray-100">
+            <div class="flex flex-col sm:flex-row gap-3">
+                <input 
+                    type="text" 
+                    id="cityInput" 
+                    placeholder="Enter city name (e.g., Tokyo, London)"
+                    class="flex-grow p-3 border border-gray-300 rounded-lg focus:ring-sky-blue focus:border-sky-blue transition duration-200"
+                    aria-label="City name input"
+                >
+                <button 
+                    id="fetchButton" 
+                    onclick="fetchWeather()"
+                    class="bg-sun-yellow text-deep-blue font-semibold py-3 px-6 rounded-lg shadow-md hover:bg-yellow-400 transition duration-300 transform hover:scale-105"
+                >
+                    Get Forecast
+                </button>
+            </div>
+            <p id="message" class="text-center text-red-500 mt-2 font-medium h-6"></p>
+        </div>
+
+        <!-- Weather Display Card -->
+        <div id="weatherDisplay" class="p-6 hidden">
+            <!-- Loading and Error states are handled via JS -->
+            <h2 id="locationName" class="text-3xl font-extrabold text-deep-blue mb-4 text-center"></h2>
+
+            <div class="flex items-center justify-center mb-6">
+                <!-- OpenWeatherMap Icon Placeholder. Use URL provided by API -->
+                <img id="weatherIcon" class="w-20 h-20" alt="Weather Icon" src="">
+                <p id="temperature" class="text-6xl font-light text-deep-blue ml-4"></p>
+                <p class="text-2xl text-deep-blue font-light self-start mt-2">°C</p>
+            </div>
+
+            <p id="description" class="text-xl text-center text-gray-700 font-medium mb-6"></p>
+
+            <!-- Detailed Metrics Grid -->
+            <div class="grid grid-cols-2 gap-4 text-center">
+                <div class="bg-cloud-gray p-4 rounded-xl shadow-inner">
+                    <p class="text-2xl font-bold text-deep-blue" id="feelsLike"></p>
+                    <p class="text-sm text-gray-500">Feels Like</p>
+                </div>
+                <div class="bg-cloud-gray p-4 rounded-xl shadow-inner">
+                    <p class="text-2xl font-bold text-deep-blue" id="humidity"></p>
+                    <p class="text-sm text-gray-500">Humidity (%)</p>
+                </div>
+                <div class="bg-cloud-gray p-4 rounded-xl shadow-inner">
+                    <p class="text-2xl font-bold text-deep-blue" id="windSpeed"></p>
+                    <p class="text-sm text-gray-500">Wind (m/s)</p>
+                </div>
+                <div class="bg-cloud-gray p-4 rounded-xl shadow-inner">
+                    <p class="text-2xl font-bold text-deep-blue" id="pressure"></p>
+                    <p class="text-sm text-gray-500">Pressure (hPa)</p>
+                </div>
+            </div>
+        </div>
+
+        <!-- Initial Placeholder Message -->
+        <div id="placeholder" class="p-6 text-center text-gray-500">
+            <svg class="w-12 h-12 mx-auto mb-2 text-sky-blue" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 3v1m0 16v1m9-9h-1M4 12H3m15.364 6.364l-.707-.707M6.343 6.343l-.707-.707m12.728 0l-.707.707M6.343 17.657l-.707.707M16 12a4 4 0 11-8 0 4 4 0 018 0z"></path></svg>
+            <p>Enter a city above to see the current conditions.</p>
+        </div>
+        
+    </div>
+
+    <script>
+        // Use the Flask default port 5000
+        const API_ENDPOINT = 'http://127.0.0.1:5000/weather'; 
+        
+        const cityInput = document.getElementById('cityInput');
+        const fetchButton = document.getElementById('fetchButton');
+        const messageDisplay = document.getElementById('message');
+        const weatherDisplay = document.getElementById('weatherDisplay');
+        const placeholder = document.getElementById('placeholder');
+
+        // Helper to update UI elements
+        const updateUI = (selector, content, suffix = '') => {
+            document.getElementById(selector).textContent = content + suffix;
+        };
+
+        const fetchWeather = async () => {
+            const city = cityInput.value.trim();
+            if (!city) {
+                showMessage('Please enter a valid city name.', 'text-red-500');
+                return;
+            }
+
+            // Reset UI and show loading
+            showMessage('Fetching weather...', 'text-sky-blue');
+            fetchButton.disabled = true;
+            weatherDisplay.classList.add('hidden');
+            placeholder.classList.add('hidden');
+
+            try {
+                // Construct the URL for the local Flask backend
+                const response = await fetch(`${API_ENDPOINT}?city=${city}`);
+                const data = await response.json();
+
+                if (!response.ok) {
+                    // Handle API error messages from the backend
+                    showMessage(`Error: ${data.error || 'Could not fetch weather data.'}`, 'text-red-500');
+                    return;
+                }
+
+                // Successful response: Update the display
+                showMessage('', 'text-green-500'); // Clear message
+                weatherDisplay.classList.remove('hidden');
+
+                const { 
+                    city: resCity, 
+                    country, 
+                    temperature_c, 
+                    feels_like_c, 
+                    humidity, 
+                    pressure, 
+                    description, 
+                    icon, 
+                    wind_speed_m_s 
+                } = data;
+
+                // 1. Main Data
+                updateUI('locationName', `${resCity}, ${country}`);
+                updateUI('temperature', Math.round(temperature_c));
+                updateUI('description', description);
+                
+                // 2. Icon (OpenWeatherMap icon URLs)
+                document.getElementById('weatherIcon').src = `http://openweathermap.org/img/wn/${icon}@2x.png`;
+                document.getElementById('weatherIcon').onerror = () => {
+                     // Fallback if the icon URL fails
+                    document.getElementById('weatherIcon').src = 'https://placehold.co/80x80/94A3B8/ffffff?text=Icon';
+                };
+
+                // 3. Detailed Metrics
+                updateUI('feelsLike', Math.round(feels_like_c), '°C');
+                updateUI('humidity', humidity);
+                updateUI('windSpeed', wind_speed_m_s.toFixed(1));
+                updateUI('pressure', pressure);
+
+            } catch (error) {
+                showMessage('Network error: Is the Python server running?', 'text-red-500');
+                console.error('Fetch error:', error);
+            } finally {
+                fetchButton.disabled = false;
+            }
+        };
+
+        const showMessage = (text, colorClass) => {
+            messageDisplay.textContent = text;
+            messageDisplay.className = `text-center mt-2 font-medium h-6 ${colorClass}`;
+        };
+
+        // Add event listener for Enter key
+        cityInput.addEventListener('keypress', (e) => {
+            if (e.key === 'Enter') {
+                fetchWeather();
+            }
+        });
+        
+        // Initial setup for the placeholder state
+        document.addEventListener('DOMContentLoaded', () => {
+            if (weatherDisplay.classList.contains('hidden')) {
+                placeholder.classList.remove('hidden');
+            }
+        });
+
+    </script>
+</body>
+</html>
