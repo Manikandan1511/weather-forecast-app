@@ -1,5 +1,5 @@
 import requests
-from flask import Flask, request, jsonify
+from flask import Flask, request, jsonify, render_template # <-- ADDED render_template
 from flask_cors import CORS 
 
 # --- Configuration ---
@@ -10,6 +10,13 @@ CORS(app) # Enable CORS for frontend communication
 API_KEY = "4a531c1f07ab4648a43165833252310"
 # BASE URL for WeatherAPI.com Current Weather endpoint
 BASE_URL = "http://api.weatherapi.com/v1/current.json"
+
+@app.route('/')
+def index():
+    """Serves the main frontend page (index.html).
+    This fixes the 404 Not Found error on the root path.
+    """
+    return render_template('index.html')
 
 @app.route('/weather', methods=['GET'])
 def get_weather():
@@ -54,8 +61,7 @@ def get_weather():
             "pressure": current_data.get('pressure_mb'), 
             "humidity": current_data.get('humidity'),
             "description": condition_data.get('text', '').title(),
-            # WeatherAPI icon URLs start with //, so we remove http: to let the browser choose (or we can prepend https:)
-            # I will prepend 'https:' for reliability, as the original frontend expects a full URL.
+            # Prepend 'https:' for reliability, as the original frontend expects a full URL.
             "icon": 'https:' + condition_data.get('icon', ''), 
             "wind_speed_m_s": wind_m_s
         }
@@ -82,4 +88,5 @@ def get_weather():
 if __name__ == '__main__':
     # Run the server on localhost:5000
     print("Starting Flask server on http://127.0.0.1:5000...")
+    # NOTE: Ensure the index.html is placed inside a 'templates' folder.
     app.run(debug=True)
